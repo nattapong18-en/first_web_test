@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>C — ความเป็นมาของภาษาที่หล่อหลอมระบบคอมพิวเตอร์</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0c0f0a;
+    --bg-panel: #14180f;
+    --bg-panel-2: #191d13;
+    --border: #333a26;
+    --border-dim: #22271a;
+    --paper: #e9e4d4;
+    --paper-dim: #a8a48f;
+    --amber: #ffb000;
+    --amber-dim: #8a611b;
+    --red-stamp: #b3462c;
+  }
+
+  *{ box-sizing: border-box; }
+
+  html{ scroll-behavior: smooth; }
+
+  body{
+    margin:0;
+    background: var(--bg);
+    background-image:
+      radial-gradient(ellipse at top left, rgba(255,176,0,0.05), transparent 45%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+    color: var(--paper);
+    font-family: 'Source Serif 4', serif;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .mono{ font-family: 'IBM Plex Mono', monospace; }
+
+  ::selection{ background: var(--amber); color:#111; }
+
+  a{ color: var(--amber); }
+
+  /* ---------- Scanline overlay ---------- */
+  .crt-overlay{
+    pointer-events:none;
+    position:fixed; inset:0;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0.16) 0px, rgba(0,0,0,0.16) 1px, transparent 1px, transparent 2px);
+    mix-blend-mode: multiply;
+    opacity:0.35;
+    z-index: 999;
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    position: sticky; top:0; z-index: 50;
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 14px 6vw;
+    background: rgba(12,15,10,0.86);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--border-dim);
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+  }
+  .topbar .dot{ color: var(--amber); }
+
+  /* ---------- Hero ---------- */
+  .hero{
+    min-height: 92vh;
+    display:flex; flex-direction:column; justify-content:center;
+    padding: 8vh 6vw 6vh;
+    position:relative;
+    border-bottom: 1px solid var(--border-dim);
+  }
+
+  .terminal{
+    max-width: 900px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.4), 0 30px 60px -20px rgba(0,0,0,0.6);
+  }
+  .terminal-head{
+    display:flex; align-items:center; gap:8px;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border-dim);
+    font-size: 0.72rem;
+    color: var(--paper-dim);
+  }
+  .terminal-head span.title{ margin-left: 6px; }
+  .terminal-head .chip{ width:9px; height:9px; border-radius:50%; background: var(--border); }
+
+  .terminal-body{
+    padding: 28px clamp(18px, 4vw, 40px) 34px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: clamp(0.85rem, 1.4vw, 1rem);
+    color: var(--amber);
+    min-height: 190px;
+  }
+  .terminal-body .prompt{ color: var(--paper-dim); }
+  .terminal-body .cursor{
+    display:inline-block; width: 0.55em; height: 1em; background: var(--amber);
+    vertical-align: -0.15em;
+    animation: blink 1s steps(1) infinite;
+  }
+  @keyframes blink{ 50%{ opacity:0; } }
+
+  .hero h1{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: clamp(1.9rem, 5vw, 3.4rem);
+    line-height: 1.15;
+    margin: 34px 0 14px;
+    color: var(--paper);
+    max-width: 14ch;
+  }
+  .hero h1 .amber{ color: var(--amber); }
+
+  .hero .dek{
+    max-width: 62ch;
+    color: var(--paper-dim);
+    font-size: clamp(1rem, 1.6vw, 1.15rem);
+  }
+
+  .hero .meta-row{
+    margin-top: 30px;
+    display:flex; gap: 28px; flex-wrap: wrap;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--paper-dim);
+  }
+  .hero .meta-row b{ color: var(--amber); font-weight: 600; }
+
+  /* ---------- Section shell ---------- */
+  section{ padding: 8vh 6vw; border-bottom: 1px solid var(--border-dim); }
+  .section-head{
+    display:flex; align-items:baseline; gap: 16px; margin-bottom: 44px;
+  }
+  .section-head .tag{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--amber);
+    border: 1px solid var(--amber-dim);
+    padding: 3px 8px;
+    border-radius: 3px;
+    white-space:nowrap;
+  }
+  .section-head h2{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: clamp(1.3rem, 2.6vw, 1.9rem);
+    color: var(--paper);
+    margin:0;
+  }
+
+  .prose{ max-width: 74ch; color: var(--paper); }
+  .prose p{ margin: 0 0 1.1em; }
+  .prose .lede{ font-size: 1.15rem; color: var(--paper); }
+
+  /* ---------- Timeline (terminal log style) ---------- */
+  .log{
+    max-width: 900px;
+    border-left: 1px solid var(--border);
+    margin-left: 6px;
+  }
+  .log-entry{
+    position: relative;
+    padding: 0 0 46px 34px;
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .log-entry.in-view{ opacity: 1; transform: translateY(0); }
+  .log-entry::before{
+    content:"";
+    position:absolute; left: -6px; top: 4px;
+    width: 11px; height: 11px; border-radius: 50%;
+    background: var(--bg);
+    border: 2px solid var(--amber);
+  }
+  .log-entry .year{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 0.95rem;
+    color: var(--amber);
+    letter-spacing: 0.03em;
+  }
+  .log-entry h3{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 1.15rem;
+    margin: 6px 0 10px;
+    color: var(--paper);
+  }
+  .log-entry p{ margin:0; max-width: 62ch; color: var(--paper-dim); }
+  .log-entry code{
+    font-family:'IBM Plex Mono', monospace;
+    background: var(--bg-panel-2);
+    border: 1px solid var(--border-dim);
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: var(--amber);
+    font-size: 0.88em;
+  }
+
+  /* ---------- Card grid (legacy) ---------- */
+  .grid{
+    display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 18px; max-width: 1100px;
+  }
+  .card{
+    background: var(--bg-panel);
+    border: 1px solid var(--border-dim);
+    border-radius: 6px;
+    padding: 22px;
+  }
+  .card .mono-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--amber-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .card h4{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 1.02rem;
+    margin: 10px 0 8px;
+    color: var(--paper);
+  }
+  .card p{ margin:0; color: var(--paper-dim); font-size: 0.94rem; }
+
+  /* ---------- Stamp / closing note ---------- */
+  .memo{
+    max-width: 760px;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    padding: 28px clamp(18px,4vw,34px);
+    position: relative;
+    background: var(--bg-panel);
+  }
+  .memo .stamp{
+    position:absolute; top: -14px; right: 26px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--red-stamp);
+    border: 2px solid var(--red-stamp);
+    padding: 4px 10px;
+    border-radius: 4px;
+    transform: rotate(4deg);
+    background: var(--bg);
+    letter-spacing: 0.08em;
+  }
+  .memo p{ margin: 0 0 1em; color: var(--paper); }
+  .memo p:last-child{ margin:0; }
+
+  footer{
+    padding: 5vh 6vw 8vh;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--paper-dim);
+    display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation: none !important; transition: none !important; }
+  }
+
+  @media (max-width: 640px){
+    .hero{ min-height: unset; padding-top: 12vh; }
+    .log{ margin-left: 2px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="crt-overlay"></div>
+
+<div class="topbar mono">
+  <span><span class="dot">●</span> bell-labs://history/c-language</span>
+  <span>1969 — ปัจจุบัน</span>
+</div>
+
+<section class="hero">
+  <div class="terminal">
+    <div class="terminal-head">
+      <span class="chip"></span><span class="chip"></span><span class="chip"></span>
+      <span class="title">pdp-11 — /usr/src/cmd</span>
+    </div>
+    <div class="terminal-body" id="typewriter">
+      <span class="prompt">$</span>
+    </div>
+  </div>
+
+  <h1>ภาษา C: <span class="amber">รากฐาน</span>ที่ยังค้ำระบบคอมพิวเตอร์ทั้งโลก</h1>
+  <p class="dek">จากเครื่อง PDP-11 เครื่องเดียวใน Bell Labs สู่ภาษาที่อยู่เบื้องหลัง Unix, Linux kernel, และเฟิร์มแวร์ในไมโครคอนโทรลเลอร์ทุกตัวที่คุณเคยแตะ — นี่คือเส้นทางกว่า 50 ปีของ C</p>
+
+  <div class="meta-row">
+    <span><b>ผู้สร้าง</b> — Dennis Ritchie</span>
+    <span><b>สถานที่</b> — Bell Labs, Murray Hill, NJ</span>
+    <span><b>มาตรฐานล่าสุด</b> — ISO/IEC 9899:2023 (C23)</span>
+  </div>
+</section>
+
+<section id="origins">
+  <div class="section-head">
+    <span class="tag mono">01</span>
+    <h2>ก่อนจะมี C</h2>
+  </div>
+  <div class="prose">
+    <p class="lede">C ไม่ได้เกิดขึ้นลอย ๆ — มันคือคำตอบต่อปัญหาจริงของทีมที่กำลังสร้างระบบปฏิบัติการ</p>
+    <p>ปี 1969 Ken Thompson และ Dennis Ritchie ที่ Bell Labs เริ่มพัฒนา Unix บนเครื่อง PDP-7 ที่แทบไม่มีใครใช้แล้ว โดยเขียนด้วยภาษาแอสเซมบลีทั้งหมด ซึ่งหมายความว่าโค้ดทุกบรรทัดผูกติดกับสถาปัตยกรรมของเครื่องนั้นเครื่องเดียว ย้ายไปเครื่องอื่นแทบเป็นไปไม่ได้</p>
+    <p>Thompson จึงพัฒนาภาษาชื่อ <code>B</code> ขึ้นมาก่อน โดยดัดแปลงมาจากภาษา BCPL อีกที B เป็นภาษาแบบ typeless เรียบง่าย เหมาะกับการเขียนเครื่องมือระบบ แต่ยังมีข้อจำกัดสำคัญ: มันจัดการกับข้อมูลเป็น "word" เดียวเท่านั้น ไม่มีชนิดข้อมูลแยกอย่าง char หรือ struct ทำให้ไม่เหมาะกับฮาร์ดแวร์รุ่นใหม่อย่าง PDP-11 ที่เริ่มมีการอ้างอิงข้อมูลระดับไบต์</p>
+  </div>
+</section>
+
+<section id="birth">
+  <div class="section-head">
+    <span class="tag mono">02</span>
+    <h2>กำเนิด C และการเขียน Unix ใหม่</h2>
+  </div>
+  <div class="log">
+
+    <div class="log-entry">
+      <div class="year mono">1972</div>
+      <h3>Dennis Ritchie สร้างภาษา C</h3>
+      <p>บนเครื่อง PDP-11 Ritchie พัฒนา C ต่อยอดจาก B โดยเพิ่มระบบชนิดข้อมูล (type system) เช่น <code>char</code>, <code>int</code>, และที่สำคัญที่สุดคือแนวคิด <code>struct</code> กับตัวชี้ (pointer) ที่ผูกกับชนิดข้อมูลอย่างชัดเจน ทำให้เขียนโค้ดที่แม็ปกับหน่วยความจำจริงได้แม่นยำ แต่ยังคงเป็นนามธรรมพอที่จะพอร์ตข้ามเครื่องได้</p>
+    </div>
+
+    <div class="log-entry">
+      <div class="year mono">1973</div>
+      <h3>Unix kernel ถูกเขียนใหม่ด้วย C</h3>
+      <p>นี่คือจุดเปลี่ยนที่แท้จริง: แทนที่จะผูก Unix ไว้กับแอสเซมบลีของ PDP-11 ทีมงานเขียน kernel ใหม่เกือบทั้งหมดด้วย C ผลลัพธ์คือ Unix กลายเป็นระบบปฏิบัติการตัวแรก ๆ ที่ "พอร์ตได้" (portable) — ย้ายไปรันบนสถาปัตยกรรมอื่นได้โดยแก้โค้ดเพียงส่วนน้อย นี่คือจุดที่ C กับ Unix ผูกชะตากันตลอดกาล</p>
+    </div>
+
+    <div class="log-entry">
+      <div class="year mono">1978</div>
+      <h3>หนังสือ "The C Programming Language"</h3>
+      <p>Brian Kernighan และ Dennis Ritchie ตีพิมพ์หนังสือที่รู้จักกันในชื่อ "K&R" ซึ่งทำหน้าที่เป็นทั้งคู่มือภาษาและมาตรฐานอย่างไม่เป็นทางการนานกว่าทศวรรษ ก่อนที่จะมีมาตรฐานอย่างเป็นทางการ นักพัฒนาทั่วโลกอ้างอิงพฤติกรรมของภาษาจากหนังสือเล่มนี้เพียงเล่มเดียว</p>
+    </div>
+
+  </div>
+</section>
+
+<section id="standard">
+  <div class="section-head">
+    <span class="tag mono">03</span>
+    <h2>การกลายเป็นมาตรฐาน</h2>
+  </div>
+  <div class="log">
+
+    <div class="log-entry">
+      <div class="year mono">1989 / 1990</div>
+      <h3>ANSI C (C89) และ ISO C90</h3>
+      <p>เมื่อ C ถูกใช้แพร่หลายและมีหลายสำนักพัฒนาคอมไพเลอร์ต่างค่ายกันไปตามใจ ANSI จึงตั้งคณะกรรมการกำหนดมาตรฐานอย่างเป็นทางการ ผลลัพธ์คือ C89 ซึ่ง ISO รับรองต่อในชื่อ C90 นี่คือจุดที่ function prototype, <code>void</code>, และไลบรารีมาตรฐานอย่าง <code>stdlib.h</code> กลายเป็นส่วนหนึ่งของภาษาอย่างเป็นทางการ</p>
+    </div>
+
+    <div class="log-entry">
+      <div class="year mono">1999</div>
+      <h3>C99</h3>
+      <p>เพิ่มความสามารถที่โปรแกรมเมอร์รุ่นหลังคุ้นเคย เช่น คอมเมนต์ <code>//</code>, การประกาศตัวแปรกลางฟังก์ชันได้ (ไม่ต้องอยู่บนสุดของ block), <code>inline</code> function, variable-length array, และชนิดข้อมูลที่ระบุขนาดชัดเจนอย่าง <code>uint32_t</code> ใน <code>stdint.h</code> — สิ่งที่งานเขียนเฟิร์มแวร์สมัยนี้ยังพึ่งพาอยู่ทุกวัน</p>
+    </div>
+
+    <div class="log-entry">
+      <div class="year mono">2011</div>
+      <h3>C11</h3>
+      <p>ตอบรับยุคมัลติคอร์อย่างเป็นทางการ ด้วย <code>threads.h</code> สำหรับจัดการเธรดในตัวภาษา, <code>stdatomic.h</code> สำหรับ atomic operation, และ <code>_Generic</code> สำหรับเขียนโค้ดที่ทำงานต่างกันตามชนิดข้อมูล (type-generic) โดยไม่ต้องพึ่ง preprocessor macro ล้วน ๆ</p>
+    </div>
+
+    <div class="log-entry">
+      <div class="year mono">2017 / 2023</div>
+      <h3>C17 และ C23</h3>
+      <p>C17 เป็นการแก้บั๊กของข้อกำหนดใน C11 โดยไม่เพิ่มฟีเจอร์ใหม่ ส่วน C23 (ISO/IEC 9899:2024) เป็นมาตรฐานล่าสุด นำ <code>bool</code>, <code>true</code>/<code>false</code> เข้ามาเป็นคีย์เวิร์ดโดยตรง (ไม่ต้อง include <code>stdbool.h</code> อีกต่อไป) พร้อมปรับปรุงเรื่อง attribute และการอนุมานชนิดข้อมูลให้ทันสมัยขึ้น</p>
+    </div>
+
+  </div>
+</section>
+
+<section id="legacy">
+  <div class="section-head">
+    <span class="tag mono">04</span>
+    <h2>ทำไม C ยังสำคัญ</h2>
+  </div>
+  <div class="grid">
+    <div class="card">
+      <div class="mono-label">Systems</div>
+      <h4>รากฐานของระบบปฏิบัติการ</h4>
+      <p>Linux kernel, Windows NT kernel บางส่วน, และ Unix-like ทุกตัวยังเขียนด้วย C เป็นแกนหลัก เพราะให้การควบคุมหน่วยความจำและฮาร์ดแวร์แบบตรงไปตรงมาโดยไม่มี runtime แทรกกลาง</p>
+    </div>
+    <div class="card">
+      <div class="mono-label">Lineage</div>
+      <h4>ต้นแบบของภาษาต่อมา</h4>
+      <p>C++ เริ่มจาก "C with Classes", Java และ C# หยิบไวยากรณ์ curly-brace มาโดยตรง แม้แต่ Rust เองก็ยังต้องอ้างอิงโมเดลหน่วยความจำของ C เป็นจุดเทียบเวลาออกแบบระบบ ownership</p>
+    </div>
+    <div class="card">
+      <div class="mono-label">Embedded</div>
+      <h4>ภาษาเริ่มต้นของไมโครคอนโทรลเลอร์</h4>
+      <p>ตราบใดที่ยังมีชิปที่ไม่มีทรัพยากรพอสำหรับ runtime หนัก ๆ C ยังเป็นตัวเลือกอันดับแรกของ toolchain อย่าง ESP-IDF, STM32 HAL หรือ AVR-GCC เพราะแม็ปเข้ากับ register และหน่วยความจำได้ตรงที่สุด</p>
+    </div>
+    <div class="card">
+      <div class="mono-label">Philosophy</div>
+      <h4>"Trust the programmer"</h4>
+      <p>C ไม่กัน null pointer, ไม่กัน buffer overflow ให้อัตโนมัติ — เป็นปรัชญาที่ยกภาระความปลอดภัยของหน่วยความจำให้ผู้เขียนโค้ดทั้งหมด ข้อถกเถียงเรื่องนี้เองที่ผลักดันให้เกิดภาษาอย่าง Rust ในเวลาต่อมา</p>
+    </div>
+  </div>
+</section>
+
+<section id="closing" style="border-bottom:none;">
+  <div class="section-head">
+    <span class="tag mono">05</span>
+    <h2>บันทึกส่งท้าย</h2>
+  </div>
+  <div class="memo">
+    <span class="stamp mono">ARCHIVED</span>
+    <p>กว่า 50 ปีหลัง PDP-11 เครื่องนั้น C ยังไม่ตาย และไม่มีทีท่าจะตาย เพราะปัญหาที่มันแก้ในปี 1972 — การเขียนโค้ดที่ควบคุมฮาร์ดแวร์ได้ตรงจุด แต่ยังพอพอร์ตข้ามเครื่องได้ — ยังเป็นปัญหาเดียวกับที่งานเฟิร์มแวร์บน ESP32 หรือ MCU ตัวไหนก็ตามต้องเจอในวันนี้</p>
+    <p>สิ่งที่เปลี่ยนไปคือเครื่องมือรอบข้าง ไม่ใช่แก่นของภาษา</p>
+  </div>
+</section>
+
+<footer>
+  <span>// end of transmission</span>
+  <span>compiled with care — history of C</span>
+</footer>
+
+<script>
+  // Hero typewriter effect
+  (function(){
+    const el = document.getElementById('typewriter');
+    const lines = [
+      '$ cat origin.log',
+      '1969 — Ken Thompson & Dennis Ritchie, Bell Labs',
+      '1972 — language "C" derived from B',
+      '1973 — Unix kernel rewritten in C',
+      'status: still compiling, 50+ years later_'
+    ];
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (reduceMotion) {
+      el.innerHTML = lines.map(l => '<div>' + l + '</div>').join('');
+    } else {
+      let lineIndex = 0, charIndex = 0;
+      el.innerHTML = '';
+      const lineDivs = lines.map(() => document.createElement('div'));
+      lineDivs.forEach(d => el.appendChild(d));
+
+      function typeStep(){
+        if (lineIndex >= lines.length) {
+          const cursor = document.createElement('span');
+          cursor.className = 'cursor';
+          el.appendChild(cursor);
+          return;
+        }
+        const currentLine = lines[lineIndex];
+        if (charIndex <= currentLine.length) {
+          lineDivs[lineIndex].textContent = currentLine.slice(0, charIndex);
+          charIndex++;
+          setTimeout(typeStep, 16 + Math.random() * 18);
+        } else {
+          lineIndex++;
+          charIndex = 0;
+          setTimeout(typeStep, 220);
+        }
+      }
+      setTimeout(typeStep, 300);
+    }
+  })();
+
+  // Scroll reveal for log entries
+  (function(){
+    const items = document.querySelectorAll('.log-entry');
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) e.target.classList.add('in-view');
+      });
+    }, { threshold: 0.2 });
+    items.forEach(i => io.observe(i));
+  })();
+</script>
+
+</body>
+</html>
